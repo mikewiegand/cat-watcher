@@ -1,4 +1,4 @@
- CatWatcher — Local Cat Recognition & Smart Door System
+atWatcher — Local Cat Recognition & Smart Door System
 
 CatWatcher is a fully local, privacy-preserving cat recognition and door-access system built on **Thor**, **ESP32-S3 camera nodes**, **YOLOv11n detection**, **embedding-based identity**, and **UDLS decision logging**.  
 No cloud dependencies — all inference, matching, storage, and policy enforcement run on your LAN.
@@ -20,10 +20,16 @@ No cloud dependencies — all inference, matching, storage, and policy enforceme
 
 ## Architecture Overview
 
-```
-ESP32-S3 Camera → Thor Ingest API → YOLOv11n Detector (TRT)
-                → Embedding Model → Similarity Search → Profile Match
-                → UDLS Logs → Access Control → Door Controller
+```mermaid
+flowchart TD
+  ESP32[ESP32-S3 Camera Node] --> Ingest[Thor Ingest API]
+  Ingest --> Detector[YOLOv11n Detector (TRT)]
+  Detector --> Embed[Embedding Model]
+  Embed --> Match[Similarity Search & Profile Match]
+  Match --> UDLS[UDLS Logger]
+  Match --> Access[Access Control Policy]
+  Access --> Door[Door Controller]
+  UDLS --> Mongo[MongoDB Event & Decision Storage]
 ```
 
 Thor manages the entire inference and decision pipeline.  
