@@ -1,4 +1,21 @@
-# Power Module vFinal
+# Table of Contents
+
+1. [Purpose](#0-purpose)
+2. [Definitions](#1-definitions)
+3. [Architecture Overview](#2-architecture-overview)
+4. [Layer Specifications](#3-layer-specifications)
+   - [Layer 1 — Panel Layer](#31-layer-1--panel-layer)
+   - [Layer 2 — Energy Layer](#32-layer-2--energy-layer-controller--battery)
+   - [Layer 3 — Logic Layer](#33-layer-3--logic-layer-rails--electronics)
+5. [Electrical Interface Standard](#4-electrical-interface-standard)
+6. [Enclosure Requirements](#5-enclosure-requirements)
+7. [Test & Acceptance](#6-test--acceptance)
+8. [Rail Naming](#7-rail-naming)
+9. [Upgrade Path](#8-upgrade-path)
+
+---
+
+Power Module vFinal
 
 **Status:** FROZEN  
 **Scope:** Reusable solar + battery power module for ESP32-class devices  
