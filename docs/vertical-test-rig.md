@@ -471,3 +471,112 @@ PANEL±, VBAT±, V5/GND, V3V3/GND, V4V0/GND
 - Telemetry in Layer 2
 - Load switches for sleep rails
 - PCB for Layer 3 once proven
+
+
+---
+
+# Addendum: Expanded Layer 2 and Layer 3 Details (v1.1)
+
+This addendum expands **Layer 2 (Energy Layer)** and **Layer 3 (Logic Layer)** with build-level guidance, wiring rules, and acceptance checks.
+
+## 3.2A Layer 2 Design Details
+
+### 3.2A.1 What Layer 2 must contain
+Minimum (recommended v1):
+- **Solar charge controller** matched to your battery chemistry and cell count (1S vs 2S)
+- **Battery pack** (with integrated BMS if possible)
+- **Fuse on VBAT+** (mandatory; placed as close to battery positive as practical)
+- **Disconnect** (connector or switch) so Layer 3 can be unplugged for service
+- **Strain relief** for panel cable and VBAT cable
+
+Optional but strongly recommended:
+- **TVS diode** or surge protection on panel input (helps with long panel leads / ESD)
+- **Battery voltage monitor** (simple voltmeter module or ADC feed to a logger)
+- **Low-voltage cutoff** if your BMS/pack does not provide it (protects the battery)
+
+### 3.2A.2 Interfaces and wiring (simple + robust)
+**Ports**
+- From Layer 1 (Panel): `PANEL+`, `PANEL-`
+- To Layer 3 (Battery bus): `VBAT+`, `VBAT-`
+
+**Wiring rules**
+- Keep `PANEL±` wiring physically separate from `VBAT±` wiring inside the enclosure (reduces noise + mistakes).
+- Use **color discipline**:
+  - Red = positive (PANEL+ / VBAT+)
+  - Black = negative (PANEL- / VBAT- / GND)
+- Add **drip loops** on any cable entering from outdoors.
+
+**Fuse sizing rule of thumb**
+- Fuse should protect the wiring, not the load.
+- Pick a fuse slightly above your expected peak draw from Layer 3.
+  - Example: if your logic box peaks around ~1.5A at VBAT, a **2A fuse** is a reasonable starting point.
+  - If your VBAT wiring is thin (e.g., 24–26 AWG), size the fuse lower.
+
+### 3.2A.3 Enclosure guidance (Layer 2)
+- Battery prefers **cool, shaded** placement (heat kills cycle life).
+- If the controller generates heat, either:
+  - partition it away from the battery, or
+  - mount controller to the enclosure wall for heat spreading.
+- Add a **vent membrane** (Gore-style) if the enclosure sees sun/temperature swings (reduces condensation).
+
+### 3.2A.4 Layer 2 acceptance tests (field-simple)
+- **Night backfeed test:** at night, measure current from battery toward panel; should be ~0 (controller blocks reverse).
+- **Charge test:** in sun, confirm battery voltage rises and controller indicates charge state.
+- **Fuse test (bench):** confirm fuse opens on an intentional short (use a sacrificial fuse).
+
+---
+
+## 3.3A Layer 3 Design Details (Rails + Electronics)
+
+### 3.3A.1 Layer 3 goals
+- Convert `VBAT±` into clean, stable rails with enough headroom for ESP32-S3 burst loads.
+- Make wiring and service easy: everything is labeled, modular, and testable.
+
+### 3.3A.2 Recommended v1 rail plan (matches your current build)
+- **VBAT (from Layer 2):** 2S bus (6.0–8.4V) enters Layer 3
+- **5V rail:** via your adjustable buck set to **5.00V**
+- **3.3V rail:** via **TRACO TSR-1-2433** from the 5V rail
+- **(Future) 3.7–4.0V rail:** separate buck from VBAT if you add “Li-ion-like” devices
+
+### 3.3A.3 Reference wiring diagram (Layer 3)
+```
+VBAT (6–8.4V, 2S)  ──>  [5V Buck]  ──>  5V BUS  ──> (optional 5V loads)
+                               │
+                               └────────>  [TSR-1-2433]  ──> 3.3V BUS ──> ESP32-S3 + camera + sensors
+```
+
+### 3.3A.4 Capacitor placement rules (the “why it works” part)
+**At 5V entry (right after 5V buck):**
+- **470µF electrolytic** across `5V ↔ GND`
+  - Purpose: absorbs load steps and keeps 5V from sagging during bursts.
+
+**At TSR output (right at TSR VOUT/GND pins):**
+- **100µF electrolytic** + **10µF electrolytic/ceramic** across `3.3V ↔ GND`
+  - Purpose: stabilizes the regulator output and supplies burst current locally.
+
+**At the ESP32 and camera power pins:**
+- **100µF** (bulk) + **0.1µF (104 ceramic)** (high-frequency) across `3.3V ↔ GND`
+  - Purpose: handles the fast transients at the load, not “somewhere else on the board”.
+
+**Placement rule**
+- These caps must be **physically close** to the nodes they protect (short leads/wires, minimal loop area).
+- If you must choose: prioritize **0.1µF closest**, then **10µF**, then **100µF**.
+
+### 3.3A.5 Grounding and wiring discipline (prevents ghost resets)
+- Use a **single GND spine/bus** on your perfboard.
+- Avoid long daisy-chain grounds (don’t run ESP ground “through” another load).
+- Keep buck/TSR power paths short and thicker than signal wiring.
+- If you have long leads to the ESP/camera, add extra local caps at the far end.
+
+### 3.3A.6 Layer 3 bring-up checklist (fast)
+1. Set 5V buck to **5.00–5.05V** with no load.
+2. Add 470µF on the 5V bus; confirm 5V is stable.
+3. Power TSR from 5V; confirm **3.3V** output with no ESP connected.
+4. Add TSR output caps (100µF + 10µF); re-check 3.3V.
+5. Connect ESP32; watch for brownout/reset behavior during Wi‑Fi and camera init.
+6. If resets occur: shorten wiring, add 0.1µF at ESP pins, add more bulk at ESP (another 100–220µF).
+
+### 3.3A.7 Acceptance criteria (Layer 3)
+- **5V rail:** 4.95–5.10V during activity
+- **3.3V rail:** 3.25–3.35V during Wi‑Fi + camera init
+- No brownout resets during repeated wake/capture/transmit cycles
