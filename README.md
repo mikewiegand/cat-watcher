@@ -1,4 +1,4 @@
-atWatcher — Local Cat Recognition & Smart Door 
+CatWatcher — Local Cat Recognition & Smart Door 
 CatWatcher is a fully local, privacy-preserving cat recognition and door-access system built on **Thor**, **ESP32-S3 camera nodes**, **YOLOv11n detection**, **embedding-based identity**, and **UDLS decision logging**.  
 No cloud dependencies — all inference, matching, storage, and policy enforcement run on your LAN.
 
