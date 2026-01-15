@@ -1,30 +1,40 @@
 # Power Module — Three-Layer Solar Architecture
-## Canonical Master Specification (v1.0)
-
-> This document is the **canonical, normalized specification** derived from all prior solar power architecture notes,
-> experiments, and test rigs.  
-> All legacy material has been reviewed; only **authoritative, proven design decisions** remain.
->
-> Legacy drafts and exploratory notes are intentionally excluded from this file and should be retained
-> separately for historical reference.
+## Canonical Master Specification (v1.1)
 
 ---
 
-## 1) System Definition
+## Table of Contents
+1. [System Definition](#system-definition)
+2. [Architecture Overview](#architecture-overview)
+3. [Layer 1 — Panel Layer](#layer-1--panel-layer)
+4. [Layer 2 — Energy Layer](#layer-2--energy-layer)
+5. [Layer 3 — Logic Layer](#layer-3--logic-layer)
+6. [Voltage Monitoring & Battery Telemetry](#voltage-monitoring--battery-telemetry)
+7. [Bills of Materials](#bills-of-materials)
+   - [Layer 1 BOM](#layer-1-bom)
+   - [Layer 2 BOM](#layer-2-bom)
+   - [Layer 3 BOM](#layer-3-bom)
+8. [Enclosure & Mechanical](#enclosure--mechanical)
+9. [System Acceptance](#system-acceptance)
+10. [Status](#status)
 
-This system provides **solar-powered, battery-backed energy** for an ESP32-S3–class device with burst-load peripherals
+---
+
+## System Definition
+
+This system provides **solar-powered, battery-backed energy** for an ESP32‑S3–class device with burst-load peripherals
 (camera, Wi‑Fi, sensors).
 
-### Design goals
+**Design goals**
 - No brownouts during peak load
 - Battery-safe charging and discharge
 - Clear power directionality
 - Repeatable, field-safe construction
-- Separation of concerns by layer
+- Strict separation by layer
 
 ---
 
-## 2) Architecture Overview
+## Architecture Overview
 
 ```
 Layer 1: Solar Panel (raw DC)
@@ -36,248 +46,153 @@ Layer 2: Charger + Battery + Protection
 Layer 3: Regulation + Rails → ESP32-S3 + peripherals
 ```
 
-### Non-negotiables
-- Solar panel never touches logic
-- Battery is never charged without a charger
+**Non‑negotiables**
+- Solar never touches logic
+- Battery never charges without a charger
 - Layer 2 outputs energy, not rails
 - Measurement paths are never power paths
 
 ---
 
-## 3) Layer 1 — Panel Layer (Canonical)
+## Layer 1 — Panel Layer
 
-### Purpose
-Collect solar energy and deliver raw DC safely into the system.
+**Purpose:** collect solar energy and deliver raw DC safely.
 
-### Inputs
-- Sunlight
+**Outputs:** `PANEL+ / PANEL−`
 
-### Outputs
-- `PANEL+ / PANEL−` (raw DC)
-
-### Requirements
-- Nominal panel voltage: **6 V**
-- Outdoor-rated, UV-resistant wiring
-- Strain relief at enclosure entry
-- Drip loop on all external cables
+**Requirements**
+- 6 V nominal panel
+- Outdoor‑rated wiring
+- Strain relief + drip loop
 - Polarized connector
-- Optional TVS diode for long cable runs
-
-### Explicit exclusions
-- No regulation
-- No battery connection
-- No logic loads
+- Optional TVS diode for long leads
 
 ---
 
-## 4) Layer 2 — Energy Layer (Canonical, Final)
+## Layer 2 — Energy Layer
 
-### Purpose
-Layer 2 is the **energy authority**. It safely charges, protects, and exposes a **battery-backed SYS output**
-for downstream regulation.
-
-Layer 2 **never generates rails** and **never powers logic directly**.
-
----
-
-### 4.1 Functional Overview
+**Purpose:** charge, protect, and expose battery energy via `VBAT / SYS`.
 
 ```
-Solar Panel (≈6V)
-      ↓
-BQ24074  ── charger + power-path
-      ↓
-LiPo Battery (1S, 3.7V nominal)
-      ↓
-SYS output (battery-backed)
-      ↓
-Layer 3 regulation
-```
-
-The BQ24074 power-path allows **simultaneous load operation and battery charging**
-without brownouts or power contention.
-
----
-
-### 4.2 Required Components
-
-| Component | Purpose |
-|---------|--------|
-| **BQ24074** | Solar-aware Li-ion charger with power-path |
-| **1S LiPo / Li-ion battery** | Energy reservoir |
-| **1S BMS (≈5 A)** | Cell protection |
-| **Inline fuse (2–5 A)** | Wiring + downstream protection |
-| **VBAT sense divider (200k / 100k + 0.1 µF)** | ADC measurement only |
-
-**Protection model**
-- BMS protects the **cell**
-- Fuse protects the **wiring**
-- Charger enforces charge limits
-
----
-
-### 4.3 Electrical Interfaces
-
-**Inputs**
-- `PANEL+ / PANEL−` from solar panel
-- Optional TVS across panel input
-
-**Outputs**
-- `SYS+ / GND` → Layer 3 buck / buck-boost input
-
-**Measurement-only**
-- `VBAT_SENSE` → ESP32 ADC (high impedance, no load)
-
----
-
-### 4.4 Directionality Rules
-
-| Path | Allowed |
-|----|----|
-| Panel → Charger | ✅ |
-| Charger → Battery | ✅ |
-| Battery → SYS | ✅ |
-| SYS → Layer 3 | ✅ |
-| Layer 3 → Battery | ❌ |
-| ADC sense → power rail | ❌ |
-
----
-
-### 4.5 Battery Rules
-
-- Chemistry: **Li-ion / LiPo only**
-- Cell count: **1S only**
-- Expansion: **Parallel only**
-- Parallel cells must match chemistry, voltage, age, and state of charge
-
----
-
-### 4.6 Grounding & Noise Discipline
-
-- Single common ground plane
-- Short return paths for battery, charger, buck input
-- ADC sense ground references battery ground directly
-
----
-
-### 4.7 Acceptance Tests
-
-1. Night back-feed ≈ 0 A
-2. Battery voltage rises in sun
-3. SYS stable during Wi‑Fi + camera burst
-4. Fuse opens before wiring heats
-
----
-
-### 4.8 Explicit Exclusions
-
-Layer 2 does **not** include:
-- 5 V or 3.3 V rails
-- Load switches
-- ESP32 power inputs
-- Sensor regulators
-
----
-
-## 5) Layer 3 — Logic Layer (Canonical)
-
-### Purpose
-Convert SYS energy into stable rails and power logic reliably under burst load.
-
----
-
-### 5.1 Inputs
-- `SYS / VBAT` (≈3.0–4.2 V)
-
----
-
-### 5.2 Rails
-
-| Rail | Purpose |
-|----|----|
-| **5 V system rail** | Primary distribution |
-| **3.3 V logic rail** | ESP32 + camera |
-| **Quiet 3.3 V rail (optional)** | Low-noise sensors |
-
----
-
-### 5.3 Reference Implementation
-
-```
-SYS (≈3.0–4.2V)
+Solar Panel
    ↓
-Pololu S13V30F5 (buck-boost → 5V)
+BQ24074 (charger + power‑path)
    ↓
-5V BUS ──> Seeed XIAO ESP32-S3 (VBUS / 5V pin)
-     │
-     └─> TSR-1-2433 → quiet 3.3V (sensors)
+1S Li‑ion/LiPo Battery + BMS
+   ↓
+SYS / VBAT
 ```
 
----
-
-### 5.4 Powering Rules (XIAO ESP32-S3)
-
-- Supported: USB-C **or** 5 V pin
-- Prohibited:
-  - Feeding 5 V into 3V3
-  - Back-feeding 3V3 while USB/5 V present
-- Choose **exactly one** power entry path
+**Rules**
+- 1S cells only
+- Parallel expansion only
+- No rails, no logic, no sensing loads
 
 ---
 
-### 5.5 Decoupling & Stability (Mandatory)
+## Layer 3 — Logic Layer
 
-| Location | Capacitors |
-|-------|-----------|
-| 5 V rail entry | 470–1000 µF |
-| ESP32 power pins | 470 µF + 0.1 µF |
-| Peripheral rail | 220 µF + 0.1 µF |
-| High-frequency | 0.1 µF ceramic at each load |
+**Purpose:** convert SYS energy into stable rails for logic.
 
----
+```
+SYS (3.0–4.2V)
+   ↓
+Pololu S13V30F5 → 5V rail
+   ↓
+ESP32‑S3 (VBUS)
+   └─ TSR‑1‑2433 → quiet 3.3V (optional)
+```
 
-### 5.6 Grounding & Wiring
-
-- Single ground spine (no daisy chains)
-- Keep regulator paths short and thick
-- Place decoupling caps physically close to loads
-
----
-
-### 5.7 Bring-Up Checklist
-
-1. Set buck / buck-boost to **5.00–5.05 V** (no load)
-2. Add bulk cap to 5 V bus
-3. Verify 5 V stability
-4. Power TSR‑1, verify 3.3 V
-5. Attach ESP32-S3, observe Wi‑Fi + camera startup
-6. If resets occur: shorten wiring, add bulk, add 0.1 µF at pins
+**Decoupling (mandatory)**
+- 5 V bus: 470–1000 µF
+- ESP32: 470 µF + 0.1 µF
+- Peripherals: 220 µF + 0.1 µF
 
 ---
 
-## 6) Enclosure & Mechanical
+## Voltage Monitoring & Battery Telemetry
 
-- Battery kept **cool and shaded**
-- Charger thermally isolated if warm
-- Vent membrane recommended for outdoor enclosures
+Battery monitoring is implemented **entirely in Layer 3**, while electrically referencing **Layer 2 VBAT**.
+
+### VBAT ADC Sense (recommended)
+
+```
+VBAT+ ── 200kΩ ──┐
+                  ├─ ADC (ESP32‑S3)
+VBAT− ── 100kΩ ──┘
+                   │
+                 0.1µF
+                   │
+                  GND
+```
+
+- Divider ratio ≈ 1/3 VBAT
+- Continuous draw ≈ 14 µA
+- RC filter stabilizes ADC readings
+
+### Interpretation Bands (1S Li‑ion)
+
+| State | VBAT (resting) | Action |
+|-----|----------------|--------|
+| Full | 4.15–4.20 V | Normal |
+| Healthy | 3.8–4.0 V | Normal |
+| Medium | 3.6–3.8 V | Log |
+| Low | 3.45–3.6 V | Prepare sleep |
+| Critical | ≤ 3.4 V | Deep sleep |
+
+---
+
+## Bills of Materials
+
+### Layer 1 BOM
+
+| Item | Notes |
+|----|------|
+| 6 V solar panel | Outdoor rated |
+| UV‑rated cable | 2‑conductor |
+| Panel connector | JST / MC4 |
+| TVS diode (opt) | For long runs |
+
+### Layer 2 BOM
+
+| Item | Notes |
+|----|------|
+| BQ24074 module | Charger + power‑path |
+| 1S Li‑ion/LiPo | 3000–5000 mAh |
+| 1S BMS (5A) | Battery protection |
+| Inline fuse + holder | 2–5 A |
+| 18–22 AWG wire | Battery/SYS |
+
+### Layer 3 BOM
+
+| Item | Notes |
+|----|------|
+| Pololu S13V30F5 | Buck‑boost 5 V |
+| TSR‑1‑2433 (opt) | Quiet 3.3 V |
+| ESP32‑S3 (XIAO) | Main MCU |
+| Capacitors | As specified |
+| Resistors (200k/100k) | VBAT divider |
+| 0.1 µF ceramic | ADC filter |
+
+---
+
+## Enclosure & Mechanical
+
+- Battery shaded and cool
+- Charger thermally isolated
+- Vent membrane recommended
 - No exposed battery metal
 
 ---
 
-## 7) Electrical Interface Naming
+## System Acceptance
 
-`PANEL±`, `SYS±`, `VBAT±`, `V5/GND`, `V3V3/GND`
-
----
-
-## 8) System Acceptance
-
-- No night back-feed
-- Stable 5 V under peak concurrency
-- No ESP32 brownouts during Wi‑Fi or camera init
+- No night back‑feed
+- Stable 5 V under Wi‑Fi + camera
+- No brownouts
 
 ---
 
-## 9) Status
+## Status
 
-**v1.0 Canonical — Architecture frozen.**
+**v1.1 — Canonical, build‑ready, frozen.**
