@@ -10,9 +10,6 @@
 > Canonical guidance is authoritative for new builds.
 > Preserved sections retain historical rationale, test data, and design intent.
 
-============================================================
-CANONICAL SPECIFICATION (AUTHORITATIVE FOR NEW BUILDS)
-============================================================
 
 # Power Module — Three-Layer Solar Architecture
 ## Canonical Master Specification (v1.1)
@@ -210,13 +207,6 @@ VBAT− ── 100kΩ ──┘
 ---
 
 ## Status
-
-**v1.1 — Canonical, build‑ready, frozen.**
-
-
-============================================================
-PRESERVED MASTER CONTENT (VERBATIM, NO DELETIONS)
-============================================================
 
 # Power Module — Three-Layer Solar Architecture
 ## Consolidated Master Specification (vFinal+)
