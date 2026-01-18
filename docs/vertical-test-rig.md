@@ -1,8 +1,7 @@
 # Power Module — Three-Layer Solar Architecture
 ## CANONICAL + FULL PRESERVED MASTER (v1.1-recovered)
 
-> ⚠️ IMPORTANT
-> This document is a **lossless recovery merge**.
+>  This document is a **lossless recovery merge**.
 > - The CANONICAL specification is provided first.
 > - ALL prior content is preserved verbatim below.
 > - No material has been deleted, summarized, or rewritten.
@@ -1751,3 +1750,88 @@ Refinements later should preserve:
 # Appendix A — Deduplication Ledger
 
 > This appendix documents where identical source blocks were deduplicated. No unique content was removed.
+---
+
+# Builder Quick Start (v1.5)
+
+## Goal
+Assemble a **known-good Layer 2 (Energy Layer)** that safely charges a 1S LiPo, exposes a stable SYS output, and survives real-world handling.
+
+## What You Need (Minimum)
+- 6V solar panel
+- BQ24074 charger module
+- 1S LiPo battery
+- 1S BMS (≈4–5A)
+- Inline fuse (2–5A)
+- 22 AWG silicone wire (battery + SYS)
+- Kapton tape (6–8 mm)
+- Flux pen + solder
+
+## Assembly Order (Critical)
+1. **Solder BMS to battery first** (before anything else)
+2. Insulate BMS completely (Kapton)
+3. Add strain relief to battery leads
+4. Insert inline fuse on B+ or SYS+
+5. Connect battery+BMS to BQ24074 BAT
+6. Verify voltages *before* connecting Layer 3
+
+## First Power Checks
+- Battery alone: ~3.6–4.1 V
+- BAT → GND on charger: matches battery
+- SYS → GND: present and stable
+- No heat, no smell, no spark = proceed
+
+---
+
+# Appendix A — BMS Soldering & Strain Relief
+
+## Typical 1S BMS Pad Mapping
+
+```
+[ B+ ] ── Battery +
+[ B- ] ── Battery -
+[ P+ ] ── Pack / SYS +
+[ P- ] ── Pack / SYS -
+```
+
+⚠️ **Never swap B- and P-**  
+⚠️ **Do not connect charger directly to cell without BMS**
+
+## Wire Selection
+- **Battery ↔ BMS:** 22 AWG silicone (preferred)
+- **SYS ↔ Load:** 22 AWG
+- **Sense / logic:** 26–28 AWG acceptable
+
+26 AWG is **not recommended** for battery current paths.
+
+## Pad Soldering Technique (Small Pads)
+
+1. Clean pads with IPA
+2. Apply flux to pad
+3. Pre-tin pad (tiny amount)
+4. Pre-tin stripped wire
+5. Hold wire flat to pad
+6. Heat pad + wire together (1–2s)
+7. Remove heat, hold still until solid
+
+If the pad lifts — stop. Do not rework.
+
+## Strain Relief (Mandatory)
+
+After soldering:
+- Lay wires flat along PCB
+- Tape down with **Kapton**
+- Add a second Kapton wrap over joints
+- Optional: heatshrink *after* Kapton
+
+The solder joint must **never** take mechanical load.
+
+## Final Insulation
+- Entire BMS wrapped in Kapton
+- No exposed copper
+- No sharp edges near pouch cell
+
+---
+
+**Status:** v1.5 additions complete  
+**Next safe step:** Layer 2 bench validation
