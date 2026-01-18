@@ -10,9 +10,7 @@
 > Canonical guidance is authoritative for new builds.
 > Preserved sections retain historical rationale, test data, and design intent.
 
-============================================================
 CANONICAL SPECIFICATION (AUTHORITATIVE FOR NEW BUILDS)
-============================================================
 
 # Power Module — Three-Layer Solar Architecture
 ## Canonical Master Specification (v1.1)
@@ -213,10 +211,7 @@ VBAT− ── 100kΩ ──┘
 
 **v1.1 — Canonical, build‑ready, frozen.**
 
-
-============================================================
 PRESERVED MASTER CONTENT (VERBATIM, NO DELETIONS)
-============================================================
 
 # Power Module — Three-Layer Solar Architecture
 ## Consolidated Master Specification (vFinal+)
@@ -244,10 +239,7 @@ Original source material is appended **unaltered** for reference.
 
 ---
 
-
-
 ---
-
 
 ---
 
@@ -257,15 +249,11 @@ Original source material is appended **unaltered** for reference.
 - Exact duplicates across sources are replaced with a pointer to the first kept copy.
 - The canonical spec remains first and authoritative.
 
-
 ---
-
 
 # Preserved Sources (Deduped)
 
-
 ---
-
 
 # SOURCE: power_module_vFinal_CONSOLIDATED_FULL.md
 
@@ -554,13 +542,9 @@ It is suitable as a **drop‑in power module** for:
 
 **vFinal — Architecture frozen.**
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: power_module_vFinal.md
 
@@ -873,13 +857,9 @@ It is suitable as a **drop-in power module** for:
 
 No further regulator redesign should be required for this class of device.
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: esp32_s3_solar_power_architecture_v2.md
 
@@ -1005,13 +985,9 @@ Divider current ≈ 14 µA
 
 6V/10W solar → BQ24074 → 3700mAh LiPo → 3.3V buck → XIAO ESP32-S3, with battery awareness via a 200k/100k divider.
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: esp32_s3_solar_power_architecture_v2_1.md
 
@@ -1159,13 +1135,9 @@ not physical board photos. It is the authoritative wiring reference.
 
 This section supersedes any board photos or pin screenshots.
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: esp32_s3_solar_power_architecture_v2_1 2.md
 
@@ -1313,13 +1285,9 @@ not physical board photos. It is the authoritative wiring reference.
 
 This section supersedes any board photos or pin screenshots.
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: esp32_s3_solar_power_architecture_v2_2.md
 
@@ -1524,13 +1492,9 @@ Notes:
 This method is not intended to be a lab-grade voltmeter.
 It is intentionally simple, robust, and reliable for solar + cold outdoor systems.
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: esp32_s3_solar_power_architecture_v2 2.md
 
@@ -1656,13 +1620,9 @@ Divider current ≈ 14 µA
 
 6V/10W solar → BQ24074 → 3700mAh LiPo → 3.3V buck → XIAO ESP32-S3, with battery awareness via a 200k/100k divider.
 
-
-
-
 ---
 
 ---
-
 
 # SOURCE: vertical_test_rig_summary.md
 
@@ -1787,7 +1747,6 @@ Refinements later should preserve:
 ---
 
 ---
-
 
 # Appendix A — Deduplication Ledger
 
