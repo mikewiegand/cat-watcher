@@ -1,338 +1,382 @@
 
 # Power Module — Three-Layer Solar Architecture
-## Canonical Master Specification (v1.6)
+## Canonical Master Specification (v1.7)
 
 ---
 
-## Table of Contents
-1. System Definition
-2. Architecture Overview
-3. Layer 1 — Panel Layer
-4. Layer 2 — Energy Layer
-   - Builder Quick Start (v1.5)
-   - BMS Soldering & Strain Relief (Appendix A)
-5. Layer 3 — Logic Layer
-6. Voltage Monitoring & Battery Telemetry
-7. Bills of Materials
-8. Enclosure & Mechanical
-9. System Acceptance
-10. Rail Naming Standard
-11. Upgrade Path
-12. Status
+## System Definition
+
+This architecture defines a reusable, field-proven **solar-powered, battery-backed power module**
+for ESP32-S3–class devices with burst-load peripherals such as cameras, Wi‑Fi radios, mmWave sensors,
+PIR sensors, LEDs, and GPS.
+
+The system is explicitly designed for **outdoor, unattended operation** where:
+- Input power is intermittent (solar)
+- Load current is highly dynamic (Wi‑Fi + camera bursts)
+- Battery longevity and safety are mandatory
+- Brownouts must be eliminated entirely
+
+### Design Goals
+- Zero brownouts during peak concurrent load
+- Safe charging and discharge of 1S Li‑ion/LiPo cells
+- Clear electrical directionality and fault isolation
+- Mechanically repeatable, hand-assemblable construction
+- Strict separation of concerns via three physical/electrical layers
+
+### Reference Target
+- **MCU:** Seeed XIAO ESP32‑S3
+- **Operating model:** Light sleep with fast wake
+- **Deployment:** Outdoor, solar-powered, weather-exposed enclosures
 
 ---
 
-## 1. System Definition
+## Architecture Overview
 
-This system provides solar-powered, battery-backed energy for ESP32-S3–class devices with burst-load peripherals
-(camera, Wi-Fi, sensors).
+Power flows strictly left‑to‑right through three layers:
 
-Design goals:
-- No brownouts during peak load
-- Battery-safe charging and discharge
-- Clear power directionality
-- Repeatable, field-safe construction
-- Strict separation by layer
+```
+[ Layer 1 ]  Solar Panel (raw DC)
+        ↓
+[ Layer 2 ]  Charger + Battery + Protection  →  SYS / VBAT (energy bus)
+        ↓
+[ Layer 3 ]  Regulation + Rails  →  ESP32‑S3 + peripherals
+```
 
-Target MCU (reference): Seeed XIAO ESP32-S3  
-Primary use case: Outdoor, solar-powered, event-driven nodes  
-Sleep model: Light sleep (fast wake)
-
----
-
-## 2. Architecture Overview
-
-Layered power flow:
-
-Layer 1: Solar Panel (raw DC)  
-→ Layer 2: Charger + Battery + Protection (SYS / VBAT)  
-→ Layer 3: Regulation + Rails → ESP32-S3 + peripherals
-
-Non-negotiables:
-- Solar never touches logic
-- Battery never charges without a charger
-- Layer 2 outputs energy, not rails
-- Measurement paths are never power paths
+### Architectural Non‑Negotiables
+- The solar panel **never** connects to logic or rails
+- The battery **never** charges without a charge controller
+- Layer 2 exposes **energy**, not regulated rails
+- Measurement paths are **never** used as power paths
+- All regulation occurs in Layer 3
 
 ---
 
-## 3. Layer 1 — Panel Layer
+## Layer 1 — Panel Layer
 
-Purpose: Collect solar energy and deliver raw DC safely into Layer 2.
+### Purpose
+Harvest solar energy and deliver **raw DC** safely and predictably into Layer 2.
 
-Outputs: PANEL+ / PANEL−
-
-Requirements:
-- 6 V nominal panel
-- Outdoor-rated, UV-resistant wiring
-- Strain relief and drip loop
-- Polarized connector
-- Optional TVS diode for long leads / ESD
-
-Explicit exclusions:
+### Electrical Role
+- Energy source only
+- No storage
 - No regulation
-- No battery connection
-- No logic loads
+- No logic awareness
 
-Solar sizing reference:
-- Typical panel: 6 V / 10 W ETFE
-- Winter recovery (rule-of-thumb): ~600–1200 mAh/day (site dependent)
+### Interfaces
+- **Outputs:** `PANEL+` / `PANEL−`
+
+### Requirements
+- Nominal panel voltage: **6 V**
+- Outdoor-rated, UV-resistant cabling
+- Proper strain relief at enclosure entry
+- Drip loop to prevent water ingress
+- Polarized connector (JST, MC4, equivalent)
+- Optional TVS diode across PANEL+ / PANEL− for:
+  - Long cable runs
+  - ESD exposure
+  - Lightning-adjacent transients
+
+### Explicit Exclusions
+- No buck or boost regulators
+- No direct battery connection
+- No logic, sensing, or measurement loads
+
+### Solar Sizing Guidance
+- Typical reference panel: **6 V / 10 W ETFE**
+- Winter recovery expectation (rule-of-thumb):
+  **~600–1200 mAh/day**, highly site and latitude dependent
 
 ---
 
-## 4. Layer 2 — Energy Layer
+## Layer 2 — Energy Layer
 
-Purpose: Charge, protect, and expose battery energy via VBAT / SYS.
+### Purpose
+Layer 2 is the **energy authority** of the system.
 
-Layer 2 is the energy authority. It does not generate rails and does not power logic directly.
+It:
+- Safely charges the battery
+- Protects the cell and wiring
+- Exposes a battery-backed **SYS** output
 
-### Functional Overview
+It explicitly:
+- Does **not** generate rails
+- Does **not** power logic directly
 
+### Functional Power Path
+
+```
 Solar Panel (~6 V)
-→ BQ24074 (charger + power-path)
-→ 1S Li-ion/LiPo Battery + BMS + Fuse
-→ SYS output (battery-backed)
-→ Layer 3 regulation
+        ↓
+BQ24074  (solar-aware charger + power-path)
+        ↓
+1S Li-ion / LiPo Battery
+        ↓
+BMS  →  Inline Fuse
+        ↓
+SYS+ / GND   (battery-backed energy bus)
+        ↓
+Layer 3 regulation
+```
 
-### Rules (Hard Constraints)
-- Chemistry: Li-ion / LiPo only
-- Cell count: 1S only
-- Expansion: Parallel only
-- Parallel cells must match chemistry, voltage, age, and state of charge
-- No rails, no logic, no sensing loads in Layer 2 (measurement tap only allowed)
+The BQ24074 power-path architecture allows:
+- Simultaneous charging and system operation
+- Automatic source selection (solar vs battery)
+- Brownout-free transitions without firmware involvement
 
-### Required Components
+### Battery Rules (Hard Constraints)
+- Chemistry: **Li-ion / LiPo only**
+- Cell count: **1S only**
+- Capacity expansion: **parallel only**
+- Parallel cells must match:
+  - Chemistry
+  - Nominal voltage
+  - Age
+  - State of charge
+
+Series cells are explicitly forbidden in this architecture.
+
+### Required Layer 2 Components
 - BQ24074 charger module
-- 1S Li-ion/LiPo battery (3000–5000 mAh typical)
-- 1S BMS (~4–5 A)
+- 1S Li-ion / LiPo battery (typically 3000–5000 mAh)
+- 1S BMS (≈4–5 A recommended)
 - Inline fuse (2–5 A)
-- Optional TVS diode (panel input)
+- Optional TVS diode at panel input
 
-Protection roles:
-- BMS protects the cell
-- Fuse protects the wiring
-- Both are required
+#### Protection Responsibilities
+- **BMS:** protects the cell (over/under-voltage, over-current)
+- **Fuse:** protects wiring and downstream faults
+- Both are required and non-optional
 
 ### Electrical Interfaces
 
-Inputs:
-- PANEL+ / PANEL− from Layer 1
+**Inputs**
+- `PANEL+ / PANEL−` from Layer 1
 
-Outputs:
-- SYS+ / GND → Layer 3 (fused)
+**Outputs**
+- `SYS+ / GND` → Layer 3 (fused)
 
-Measurement-only:
-- VBAT_SENSE → ESP32 ADC (high impedance)
+**Measurement-Only**
+- `VBAT_SENSE` → ESP32 ADC via high-impedance divider
 
-### Directionality Rules
+Measurement paths must never source current.
 
-Allowed:
-- Panel → Charger
-- Charger → Battery
-- Battery → SYS
-- SYS → Layer 3
+### Directionality Enforcement
 
-Prohibited:
-- Layer 3 → Battery
-- ADC sense → power rail
+| Path | Allowed |
+|-----|---------|
+| Panel → Charger | Yes |
+| Charger → Battery | Yes |
+| Battery → SYS | Yes |
+| SYS → Layer 3 | Yes |
+| Layer 3 → Battery | No |
+| ADC sense → any rail | No |
 
 ### Grounding & Noise Discipline
-- Single common ground reference
-- Short return paths for battery, charger, buck input
-- ADC sense ground references battery ground directly
+- Single, common ground reference
+- Short, low-impedance return paths for:
+  - Battery
+  - Charger
+  - Buck / buck-boost input
+- ADC sense ground must reference **battery ground directly**
 
 ### Layer 2 Acceptance Tests
-1. Night back-feed: ~0 A toward panel
-2. Charge test: battery voltage rises in sun
-3. Load test: SYS stable during Wi-Fi + camera bursts
-4. Fuse test (bench): fuse opens before wiring heats
+1. **Night back-feed:** No measurable current into panel
+2. **Charge test:** Battery voltage rises under sun
+3. **Load test:** SYS remains stable during Wi‑Fi + camera bursts
+4. **Fuse test (bench):** Fuse opens before wiring heats
 
 ---
 
-### Builder Quick Start (v1.5)
+## Builder Quick Start (Layer 2)
 
-Goal: Assemble a known-good Layer 2 energy module.
+### Goal
+Assemble a **known-good, safe, and mechanically robust** energy layer.
 
-Minimum required:
+### Minimum Required Parts
 - 6 V solar panel
 - BQ24074 charger module
 - 1S LiPo battery
 - 1S BMS (~4–5 A)
 - Inline fuse (2–5 A)
-- 22 AWG silicone wire
+- **22 AWG silicone wire** (battery + SYS paths)
 - Kapton tape (6–8 mm)
 - Flux pen and solder
 
-Assembly order:
-1. Solder BMS to battery first
-2. Insulate BMS fully with Kapton
+### Assembly Order (Critical)
+1. Solder BMS directly to battery tabs
+2. Fully insulate BMS with Kapton
 3. Add strain relief to battery leads
-4. Insert inline fuse on B+ or SYS+
-5. Connect battery + BMS to BQ24074 BAT
-6. Verify voltages before connecting Layer 3
+4. Install inline fuse on B+ or SYS+
+5. Connect BMS output to BQ24074 BAT
+6. Verify voltages **before** connecting Layer 3
 
-Initial checks:
-- Battery: ~3.6–4.1 V
-- BAT to GND: matches battery
-- SYS to GND: present and stable
+### Initial Electrical Checks
+- Battery resting voltage: ~3.6–4.1 V
+- BAT → GND equals battery voltage
+- SYS → GND present and stable
+- No heat, smell, or discoloration
 
 ---
 
-### Appendix A — BMS Soldering & Strain Relief
+## Appendix A — BMS Soldering & Strain Relief
 
-Typical 1S BMS pad mapping:
+### Typical 1S BMS Pad Mapping
 - B+ : Battery +
-- B- : Battery -
+- B− : Battery −
 - P+ : Pack / SYS +
-- P- : Pack / SYS -
+- P− : Pack / SYS −
 
-Warnings:
-- Never swap B- and P-
-- Never connect charger directly to cell without BMS
+### Critical Warnings
+- Never swap B− and P−
+- Never bypass the BMS during charging
+- Never leave battery tabs exposed
 
-Wire selection:
-- Battery ↔ BMS: 22 AWG silicone
-- SYS ↔ Load: 22 AWG
-- Sense / logic: 26–28 AWG acceptable
+### Wire Selection
+- Battery ↔ BMS: **22 AWG silicone**
+- SYS ↔ Load: **22 AWG**
+- Sense wiring: 26–28 AWG acceptable
 
-Pad soldering technique:
+### Small-Pad Soldering Technique
 1. Clean pads with IPA
 2. Apply flux
-3. Pre-tin pad
+3. Pre-tin pad lightly
 4. Pre-tin wire
 5. Hold wire flat to pad
 6. Heat pad + wire together (1–2 s)
-7. Remove heat, hold still
+7. Hold still until solid
 
-Strain relief:
-- Lay wires flat
+If a pad lifts, stop immediately.
+
+### Strain Relief (Mandatory)
+- Lay wires flat against PCB
 - Tape down with Kapton
-- Add second Kapton wrap
-- Optional heatshrink after Kapton
+- Add second Kapton layer over joints
+- Optional heatshrink **after** Kapton
 
-Final insulation:
+### Final Insulation
 - Entire BMS wrapped
 - No exposed copper
-- No sharp edges near cell
+- No sharp edges near pouch cell
 
 ---
 
-## 5. Layer 3 — Logic Layer
+## Layer 3 — Logic Layer
 
-Purpose: Convert SYS energy into stable rails for logic and peripherals.
+### Purpose
+Convert SYS energy into **stable, regulated rails** for logic and peripherals.
 
-Inputs:
-- SYS+ / GND
+### Inputs
+- `SYS+ / GND`
 
-Outputs:
+### Outputs
 - 5 V system rail (primary)
-- 3.3 V logic rail
+- 3.3 V logic rail (derived)
 
 ### Canonical Power Stack
 
+```
 SYS
-→ Pololu S13V30F5 (5 V buck-boost)
-→ 5 V system rail
-→ ESP32-S3 via 5 V / VBUS
-→ Optional TSR-1-2433 for quiet 3.3 V peripherals
+ → Pololu S13V30F5 (5 V buck‑boost)
+ → 5 V system rail
+ → ESP32‑S3 via 5 V / VBUS
+ → Optional TSR‑1‑2433 for quiet 3.3 V peripherals
+```
 
-### ESP32-S3 Powering Rules
-
+### ESP32‑S3 Powering Rules
 Supported:
-- USB-C
+- USB‑C
 - 5 V pin / VBUS
 
 Prohibited:
 - Feeding 5 V into 3V3
 - Back-feeding 3V3 while USB/5 V present
 
-Rule: Choose exactly one power entry path.
+Choose **exactly one** power entry path.
 
 ### Decoupling (Mandatory)
-
 - 5 V rail: 470–1000 µF bulk
-- Near ESP32: 470 µF + 0.1 µF
+- ESP32: 470 µF + 0.1 µF
 - Peripheral rail: 220 µF + 0.1 µF
-- High-frequency: 0.1 µF ceramic at loads
+- High-frequency bypass: 0.1 µF at each load
 
-### Current Budget (Peak)
-
-- ESP32-S3 Wi-Fi bursts: 600–900 mA
+### Peak Current Reality
+- ESP32 Wi‑Fi TX bursts: 600–900 mA
 - mmWave sensor: 60–120 mA
 - LED: 20–150 mA
 - GPS: 20–60 mA
 
-Sized for peak concurrency.
+Design is sized for **peak concurrency**, not averages.
 
 ---
 
-## 6. Voltage Monitoring & Battery Telemetry
+## Voltage Monitoring & Battery Telemetry
 
 Implemented in Layer 3, referencing Layer 2 VBAT.
 
-VBAT ADC divider:
+### ADC Divider
 - 200 kΩ (VBAT → ADC)
 - 100 kΩ (ADC → GND)
 - 0.1 µF (ADC → GND)
 
 Divider ratio: ~3:1  
-Current draw: ~14 µA
+Continuous draw: ~14 µA
 
-Voltage bands:
+### Voltage Bands (Resting)
 - Full: 4.15–4.20 V
 - Healthy: 3.8–4.0 V
 - Medium: 3.6–3.8 V
 - Low: 3.45–3.6 V
 - Critical: ≤3.4 V
 
-Accuracy expectation:
+Accuracy:
 - ~90% for threshold decisions
 - ±0.05–0.15 V after calibration
 
 ---
 
-## 7. Bills of Materials
+## Bills of Materials
 
-### Layer 1 BOM
-- 6 V solar panel (ETFE preferred)
-- UV-rated 2-conductor cable
-- Polarized panel connector
+### Layer 1
+- 6 V ETFE solar panel
+- UV-rated 2‑conductor cable
+- Polarized connector
 - Optional TVS diode
 
-### Layer 2 BOM
+### Layer 2
 - BQ24074 charger module
-- 1S Li-ion/LiPo battery
+- 1S Li-ion / LiPo battery
 - 1S BMS (~4–5 A)
-- Inline fuse + holder (2–5 A)
+- Inline fuse + holder
 - 22 AWG silicone wire
 - Kapton tape
-- Flux pen and solder
+- Flux + solder
 
-### Layer 3 BOM
-- Pololu S13V30F5 buck-boost
-- TSR-1-2433 (optional)
-- Bulk and ceramic capacitors as specified
+### Layer 3
+- Pololu S13V30F5
+- TSR‑1‑2433 (optional)
+- Bulk electrolytic capacitors
+- 0.1 µF ceramic capacitors
 
 ---
 
-## 8. Enclosure & Mechanical
+## Enclosure & Mechanical
 
-- Battery kept shaded and cool
-- Charger thermally isolated if warm
+- Battery shaded and thermally isolated
+- Charger allowed airflow if warm
 - Vent membrane recommended for outdoor enclosures
 - No exposed battery metal
 
 ---
 
-## 9. System Acceptance
+## System Acceptance
 
 - No night back-feed
 - Stable 5 V under peak load
-- No ESP32 brownouts
+- No ESP32 brownouts during Wi‑Fi or camera init
 
 ---
 
-## 10. Rail Naming Standard
+## Rail Naming Standard
 
 PANEL±  
 VBAT±  
@@ -342,14 +386,14 @@ V3V3 / GND
 
 ---
 
-## 11. Upgrade Path
+## Upgrade Path
 
 - Layer 2 telemetry logging
-- Load switches for sleep rails
-- Dedicated PCB once frozen
+- Peripheral load switches
+- Dedicated PCB for Layer 3
 
 ---
 
-## 12. Status
+## Status
 
-v1.6 — Canonical, build-ready, frozen.
+v1.7 — Canonical, detailed, build-ready, frozen.
